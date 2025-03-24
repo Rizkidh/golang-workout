@@ -41,7 +41,7 @@ func main() {
 	e.POST("/create-user", CreateUser) // Pastikan ini ada di main.go
 	e.GET("/users", GetUsers)
 	e.PUT("/users/:id", UpdateUser)
-	e.GET("/create-repo", CreateRepo)
+	e.POST("/create-repo", CreateRepo)
 	e.GET("/repo", GetRepos)
 	e.DELETE("/users/:id", DeleteUser)
 
@@ -235,43 +235,96 @@ func CreateRepo(c echo.Context) error {
 		return c.String(http.StatusNotFound, "User not found")
 	}
 
-	// Simpan repository baru dengan referensi ke UserID
+	// Dapatkan ID terakhir untuk auto-increment
 	repoTable := db.MongoCollection("repo", client)
+	var lastRepo Repository
+	opts := options.FindOne().SetSort(bson.M{"id": -1}) // Urutkan descending
+	err = repoTable.FindOne(ctx, bson.M{}, opts).Decode(&lastRepo)
+	if err != nil {
+		// Jika tidak ada repo, mulai dari ID 1
+		repo.ID = 1
+	} else {
+		// Jika ada, tambahkan 1 ke ID terakhir
+		repo.ID = lastRepo.ID + 1
+	}
+
+	// Set waktu pembuatan dan pembaruan
 	repo.CreatedAt = time.Now()
 	repo.UpdatedAt = time.Now()
 
+	// Simpan repository baru
 	_, err = repoTable.InsertOne(ctx, repo)
 	if err != nil {
 		fmt.Println("Error inserting repo:", err)
 		return c.String(http.StatusInternalServerError, "Failed to insert repo")
 	}
 
-	return c.String(http.StatusOK, "Repository created successfully")
+	return c.JSON(http.StatusOK, repo)
 }
 
 // Handler Show Repositories
 func GetRepos(c echo.Context) error {
-	client := db.MongoConnect()
-	defer client.Disconnect(context.TODO()) // Tutup koneksi setelah selesai digunakan
 
+	// Inisialisasi Koneksi ke Database
+	client := db.MongoConnect()
+	defer client.Disconnect(context.TODO())
+
+	//Buat Context untuk Query Database
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	table := db.MongoCollection("repo", client)
+	//Ambil Koleksi Repository dan Users dari Database
+	repoTable := db.MongoCollection("repo", client)
+	userTable := db.MongoCollection("users", client)
 
-	// Query semua data repository
-	cursor, err := table.Find(ctx, bson.M{})
+	//Ambil Semua Data Repository dari Database
+	cursor, err := repoTable.Find(ctx, bson.M{})
 	if err != nil {
 		fmt.Println("Error fetching repositories:", err)
 		return c.String(http.StatusInternalServerError, "Failed to fetch repositories")
 	}
 	defer cursor.Close(ctx)
 
+	//Decode Data Repository ke Slice repos
 	var repos []Repository
 	if err := cursor.All(ctx, &repos); err != nil {
 		fmt.Println("Error decoding repositories:", err)
 		return c.String(http.StatusInternalServerError, "Failed to decode repositories")
 	}
 
-	return c.JSON(http.StatusOK, repos)
+	// Struct untuk response dengan nama user
+	type RepoResponse struct {
+		ID        int       `json:"id"`
+		UserID    int       `json:"user_id"`
+		UserName  string    `json:"user_name"` // Tambahkan nama user
+		Name      string    `json:"name"`
+		URL       string    `json:"url"`
+		AIEnabled bool      `json:"ai_enabled"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+	}
+
+	var repoResponses []RepoResponse
+
+	// Loop untuk menambahkan nama user berdasarkan UserID
+	for _, repo := range repos {
+		var user User
+		err := userTable.FindOne(ctx, bson.M{"id": repo.UserID}).Decode(&user)
+		if err != nil {
+			user.Name = "Unknown" // Jika user tidak ditemukan
+		}
+
+		repoResponses = append(repoResponses, RepoResponse{
+			ID:        repo.ID,
+			UserID:    repo.UserID,
+			UserName:  user.Name,
+			Name:      repo.Name,
+			URL:       repo.URL,
+			AIEnabled: repo.AIEnabled,
+			CreatedAt: repo.CreatedAt,
+			UpdatedAt: repo.UpdatedAt,
+		})
+	}
+
+	return c.JSON(http.StatusOK, repoResponses)
 }
