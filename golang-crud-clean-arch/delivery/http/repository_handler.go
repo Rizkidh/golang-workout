@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strconv"
+	"time"
 
 	"golang-crud-clean-arch/internal/entity"
 	"golang-crud-clean-arch/internal/usecase"
 
 	"github.com/go-chi/chi/v5"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type RepositoryHandler struct {
@@ -32,12 +33,14 @@ func (h *RepositoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	repo.ID = primitive.NewObjectID()
 	ctx := context.Background()
 	if err := h.repoUsecase.CreateRepository(ctx, &repo); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(repo)
 }
 
@@ -49,14 +52,15 @@ func (h *RepositoryHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to fetch repositories", http.StatusInternalServerError)
 		return
 	}
-
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(repos)
 }
 
 // Get Repository by ID
 func (h *RepositoryHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := primitive.ObjectIDFromHex(idStr)
 	if err != nil {
 		http.Error(w, "Invalid repository ID format", http.StatusBadRequest)
 		return
@@ -68,34 +72,42 @@ func (h *RepositoryHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Repository not found", http.StatusNotFound)
 		return
 	}
-
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(repo)
 }
 
-// Get User by ID
+// GetUser retrieves a user by ObjectID
 func (h *RepositoryHandler) GetUser(w http.ResponseWriter, r *http.Request) {
+	// Ambil ID dari parameter URL
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := primitive.ObjectIDFromHex(idStr)
 	if err != nil {
-		http.Error(w, "Invalid user ID format", http.StatusBadRequest)
+		http.Error(w, `{"error": "Invalid user ID format"}`, http.StatusBadRequest)
 		return
 	}
 
-	ctx := context.Background()
-	user, err := h.userUsecase.GetUser(ctx, id)
+	// Gunakan context dengan timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Ambil data user dari usecase
+	_, err = h.userUsecase.GetUser(ctx, id)
 	if err != nil {
-		http.Error(w, "User not found", http.StatusNotFound)
+		http.Error(w, `{"error": "User not found"}`, http.StatusNotFound)
 		return
 	}
 
+	// Set header response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	w.WriteHeader(http.StatusOK)
+
 }
 
 // Update Repository
 func (h *RepositoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := primitive.ObjectIDFromHex(idStr)
 	if err != nil {
 		http.Error(w, "Invalid repository ID format", http.StatusBadRequest)
 		return
@@ -113,14 +125,15 @@ func (h *RepositoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Repository updated successfully"})
 }
 
 // Delete Repository
 func (h *RepositoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := primitive.ObjectIDFromHex(idStr)
 	if err != nil {
 		http.Error(w, "Invalid repository ID format", http.StatusBadRequest)
 		return
@@ -131,6 +144,7 @@ func (h *RepositoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Repository not found", http.StatusNotFound)
 		return
 	}
-
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Repository deleted successfully"})
 }

@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"golang-crud-clean-arch/internal/entity"
 	"golang-crud-clean-arch/internal/usecase"
 
 	"github.com/go-chi/chi/v5"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type UserHandler struct {
@@ -41,20 +41,6 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	// Pagination (opsional)
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
-
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit <= 0 {
-		limit = 10 // Default limit
-	}
-
-	offset, err := strconv.Atoi(offsetStr)
-	if err != nil || offset < 0 {
-		offset = 0 // Default offset
-	}
-
 	users, err := h.usecase.GetAllUsers(ctx)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -68,7 +54,7 @@ func (h *UserHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 
 func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := primitive.ObjectIDFromHex(idStr)
 	if err != nil {
 		http.Error(w, "Invalid user ID format", http.StatusBadRequest)
 		return
@@ -88,7 +74,7 @@ func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := primitive.ObjectIDFromHex(idStr)
 	if err != nil {
 		http.Error(w, "Invalid user ID format", http.StatusBadRequest)
 		return
@@ -114,7 +100,7 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := primitive.ObjectIDFromHex(idStr)
 	if err != nil {
 		http.Error(w, "Invalid user ID format", http.StatusBadRequest)
 		return
