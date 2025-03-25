@@ -6,18 +6,22 @@ import (
 	"net/http"
 	"strconv"
 
-	"golang-crud-clean-arch/m/internal/entity"
-	"golang-crud-clean-arch/m/internal/usecase"
+	"golang-crud-clean-arch/internal/entity"
+	"golang-crud-clean-arch/internal/usecase"
 
 	"github.com/go-chi/chi/v5"
 )
 
 type RepositoryHandler struct {
-	usecase *usecase.RepositoryUsecase
+	repoUsecase *usecase.RepositoryUsecase
+	userUsecase *usecase.UserUsecase // Tambahkan UserUsecase untuk GetUser
 }
 
-func NewRepositoryHandler(u *usecase.RepositoryUsecase) *RepositoryHandler {
-	return &RepositoryHandler{u}
+func NewRepositoryHandler(repoU *usecase.RepositoryUsecase, userU *usecase.UserUsecase) *RepositoryHandler {
+	return &RepositoryHandler{
+		repoUsecase: repoU,
+		userUsecase: userU,
+	}
 }
 
 // Create Repository
@@ -29,7 +33,7 @@ func (h *RepositoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	if err := h.usecase.CreateRepository(ctx, &repo); err != nil {
+	if err := h.repoUsecase.CreateRepository(ctx, &repo); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -40,7 +44,7 @@ func (h *RepositoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 // Get All Repositories
 func (h *RepositoryHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	repos, err := h.usecase.GetAllRepositories(ctx)
+	repos, err := h.repoUsecase.GetAllRepositories(ctx)
 	if err != nil {
 		http.Error(w, "Failed to fetch repositories", http.StatusInternalServerError)
 		return
@@ -59,13 +63,33 @@ func (h *RepositoryHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	repo, err := h.usecase.GetRepository(ctx, id)
+	repo, err := h.repoUsecase.GetRepository(ctx, id)
 	if err != nil {
 		http.Error(w, "Repository not found", http.StatusNotFound)
 		return
 	}
 
 	json.NewEncoder(w).Encode(repo)
+}
+
+// Get User by ID
+func (h *RepositoryHandler) GetUser(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid user ID format", http.StatusBadRequest)
+		return
+	}
+
+	ctx := context.Background()
+	user, err := h.userUsecase.GetUser(ctx, id)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(user)
 }
 
 // Update Repository
@@ -85,7 +109,7 @@ func (h *RepositoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	updatedRepo.ID = id
 	ctx := context.Background()
-	if err := h.usecase.UpdateRepository(ctx, &updatedRepo); err != nil {
+	if err := h.repoUsecase.UpdateRepository(ctx, &updatedRepo); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -103,7 +127,7 @@ func (h *RepositoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	if err := h.usecase.DeleteRepository(ctx, id); err != nil {
+	if err := h.repoUsecase.DeleteRepository(ctx, id); err != nil {
 		http.Error(w, "Repository not found", http.StatusNotFound)
 		return
 	}

@@ -2,12 +2,16 @@ package usecase
 
 import (
 	"context"
-	"golang-crud-clean-arch/m/internal/entity"
-	"golang-crud-clean-arch/m/internal/repository"
+	"golang-crud-clean-arch/internal/entity"
+	"golang-crud-clean-arch/internal/repository"
 )
 
 type UserUsecase struct {
 	userRepo *repository.UserRepository // ✅ BENAR
+}
+
+func (u *UserUsecase) GetAllUsers(ctx context.Context) ([]entity.User, error) {
+	return u.userRepo.GetAll(ctx)
 }
 
 func (u *UserUsecase) UpdateUser(ctx context.Context, user *entity.User) error {

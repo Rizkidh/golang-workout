@@ -1,4 +1,4 @@
-module golang-crud-clean-arch/m
+module golang-crud-clean-arch
 
 go 1.24.1
 

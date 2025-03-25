@@ -2,8 +2,8 @@ package usecase
 
 import (
 	"context"
-	"golang-crud-clean-arch/m/internal/entity"
-	"golang-crud-clean-arch/m/internal/repository"
+	"golang-crud-clean-arch/internal/entity"
+	"golang-crud-clean-arch/internal/repository"
 )
 
 type RepositoryUsecase struct {
@@ -19,7 +19,7 @@ func (u *RepositoryUsecase) CreateRepository(ctx context.Context, repo *entity.R
 }
 
 func (u *RepositoryUsecase) GetAllRepositories(ctx context.Context) ([]entity.Repository, error) {
-	return u.repoRepo.GetAll(ctx)
+	return u.repoRepo.GetAllRepositories(ctx)
 }
 
 func (u *RepositoryUsecase) GetRepository(ctx context.Context, id int) (*entity.Repository, error) {

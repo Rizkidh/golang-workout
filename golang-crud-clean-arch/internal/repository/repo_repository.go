@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"golang-crud-clean-arch/m/internal/entity"
+	"golang-crud-clean-arch/internal/entity"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -17,13 +17,13 @@ func NewRepoRepository(db *mongo.Client) *RepoRepository {
 }
 
 func (r *RepoRepository) Create(ctx context.Context, repo *entity.Repository) error {
-	collection := r.db.Database("gotrial").Collection("repositories")
+	collection := r.db.Database("gotrial").Collection("repo")
 	_, err := collection.InsertOne(ctx, repo)
 	return err
 }
 
-func (r *RepoRepository) GetAll(ctx context.Context) ([]entity.Repository, error) {
-	collection := r.db.Database("gotrial").Collection("repositories")
+func (r *RepoRepository) GetAllRepositories(ctx context.Context) ([]entity.Repository, error) {
+	collection := r.db.Database("gotrial").Collection("repo")
 	cursor, err := collection.Find(ctx, bson.M{})
 	if err != nil {
 		return nil, err
@@ -38,14 +38,14 @@ func (r *RepoRepository) GetAll(ctx context.Context) ([]entity.Repository, error
 }
 
 func (r *RepoRepository) GetByID(ctx context.Context, id int) (*entity.Repository, error) {
-	collection := r.db.Database("gotrial").Collection("repositories")
+	collection := r.db.Database("gotrial").Collection("repo")
 	var repo entity.Repository
 	err := collection.FindOne(ctx, bson.M{"id": id}).Decode(&repo)
 	return &repo, err
 }
 
 func (r *RepoRepository) Update(ctx context.Context, repo *entity.Repository) error {
-	collection := r.db.Database("gotrial").Collection("repositories")
+	collection := r.db.Database("gotrial").Collection("repo")
 	_, err := collection.UpdateOne(ctx, bson.M{"id": repo.ID}, bson.M{
 		"$set": bson.M{
 			"name":       repo.Name,
@@ -57,7 +57,7 @@ func (r *RepoRepository) Update(ctx context.Context, repo *entity.Repository) er
 }
 
 func (r *RepoRepository) Delete(ctx context.Context, id int) error {
-	collection := r.db.Database("gotrial").Collection("repositories")
+	collection := r.db.Database("gotrial").Collection("repo")
 	_, err := collection.DeleteOne(ctx, bson.M{"id": id})
 	return err
 }
