@@ -44,6 +44,8 @@ func main() {
 	e.POST("/create-repo", CreateRepo)
 	e.GET("/repo", GetRepos)
 	e.DELETE("/users/:id", DeleteUser)
+	e.DELETE("/repo/:id", DeleteRepo)
+	e.PUT("/repo/:id", UpdateRepo)
 
 	// Start server
 	if err := e.Start(":9000"); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -327,4 +329,82 @@ func GetRepos(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, repoResponses)
+}
+
+// DELETE REPOSITORY
+// Handler Delete Repository
+func DeleteRepo(c echo.Context) error {
+	client := db.MongoConnect()
+	defer client.Disconnect(context.TODO())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	table := db.MongoCollection("repo", client)
+
+	// Ambil ID dari parameter URL dan ubah ke integer
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr) // Konversi string ke integer
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid repository ID format")
+	}
+
+	// Hapus repository berdasarkan ID
+	result, err := table.DeleteOne(ctx, bson.M{"id": id}) // Cari dengan integer
+	if err != nil {
+		fmt.Println("Error deleting repository:", err)
+		return c.String(http.StatusInternalServerError, "Failed to delete repository")
+	}
+
+	// Cek apakah ada dokumen yang terhapus
+	if result.DeletedCount == 0 {
+		return c.String(http.StatusNotFound, "Repository not found")
+	}
+
+	return c.String(http.StatusOK, "Repository deleted successfully")
+}
+
+// Handler Update Repository
+func UpdateRepo(c echo.Context) error {
+	client := db.MongoConnect()
+	defer client.Disconnect(context.TODO())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	table := db.MongoCollection("repo", client)
+
+	// Ambil ID dari parameter URL dan konversi ke integer
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid repository ID format")
+	}
+
+	// Ambil data dari request body
+	var updatedRepo Repository
+	if err := c.Bind(&updatedRepo); err != nil {
+		return c.String(http.StatusBadRequest, "Invalid request format")
+	}
+
+	// Perbarui data repository
+	update := bson.M{
+		"$set": bson.M{
+			"name":       updatedRepo.Name,
+			"url":        updatedRepo.URL,
+			"ai_enabled": updatedRepo.AIEnabled,
+			"updated_at": time.Now(),
+		},
+	}
+
+	result, err := table.UpdateOne(ctx, bson.M{"id": id}, update)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to update repository")
+	}
+
+	if result.MatchedCount == 0 {
+		return c.String(http.StatusNotFound, "Repository not found")
+	}
+
+	return c.JSON(http.StatusOK, bson.M{"message": "Repository updated successfully"})
 }
