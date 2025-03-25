@@ -1,4 +1,4 @@
-package delivery
+package routes
 
 import (
 	"golang-crud-clean-arch/m/delivery/http"
