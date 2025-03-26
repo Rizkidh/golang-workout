@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -16,6 +17,11 @@ var mongoClient *mongo.Client
 func MongoConnect() *mongo.Client {
 	if mongoClient != nil {
 		return mongoClient // Gunakan koneksi yang sudah ada
+	}
+
+	// Load environment variables from .env file
+	if err := godotenv.Load(); err != nil {
+		fmt.Println("Warning: No .env file found. Using system environment variables.")
 	}
 
 	mongoURI := os.Getenv("MONGO_URI")
@@ -29,10 +35,10 @@ func MongoConnect() *mongo.Client {
 	opts := options.Client().
 		ApplyURI(mongoURI).
 		SetServerAPIOptions(serverAPI).
-		SetMaxPoolSize(20).                 // Maksimum 20 koneksi dalam pool
-		SetMinPoolSize(5).                  // Minimal 5 koneksi dalam pool
-		SetMaxConnecting(10).               // Limit concurrent new connections
-		SetConnectTimeout(10 * time.Second) // Timeout saat koneksi dibuat
+		SetMaxPoolSize(20).
+		SetMinPoolSize(5).
+		SetMaxConnecting(10).
+		SetConnectTimeout(10 * time.Second)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -49,7 +55,7 @@ func MongoConnect() *mongo.Client {
 
 	fmt.Println("Pinged your deployment. You successfully connected to MongoDB!")
 
-	mongoClient = client // Simpan koneksi ke variabel global agar bisa digunakan kembali
+	mongoClient = client
 	return client
 }
 
