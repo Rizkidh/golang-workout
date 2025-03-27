@@ -3,29 +3,46 @@ package repository
 import (
 	"context"
 	"errors"
-	"golang-crud-clean-arch/internal/entity"
+	"fmt"
 	"time"
 
+	"golang-crud-clean-arch/internal/entity"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type UserRepository struct {
-	db *mongo.Client
+	db       *mongo.Client
+	redis    *redis.Client
+	validate *validator.Validate
 }
 
-func NewUserRepository(db *mongo.Client) *UserRepository {
-	return &UserRepository{db}
+func NewUserRepository(db *mongo.Client, redis *redis.Client) *UserRepository {
+	return &UserRepository{
+		db:       db,
+		redis:    redis,
+		validate: validator.New(),
+	}
 }
 
 func (r *UserRepository) Create(ctx context.Context, user *entity.User) error {
+	if err := r.validate.Struct(user); err != nil {
+		return errors.New("validasi gagal: " + err.Error())
+	}
+
 	collection := r.db.Database("gotrial").Collection("users")
 	user.ID = primitive.NewObjectID()
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
 
 	_, err := collection.InsertOne(ctx, user)
+	if err == nil {
+		r.redis.Del(ctx, "users:all")
+	}
 	return err
 }
 
@@ -40,8 +57,11 @@ func (r *UserRepository) GetByID(ctx context.Context, id primitive.ObjectID) (*e
 }
 
 func (r *UserRepository) Update(ctx context.Context, user *entity.User) error {
-	collection := r.db.Database("gotrial").Collection("users")
+	if err := r.validate.Struct(user); err != nil {
+		return errors.New("validasi gagal: " + err.Error())
+	}
 
+	collection := r.db.Database("gotrial").Collection("users")
 	update := bson.M{
 		"$set": bson.M{
 			"name":       user.Name,
@@ -51,26 +71,19 @@ func (r *UserRepository) Update(ctx context.Context, user *entity.User) error {
 	}
 
 	result, err := collection.UpdateOne(ctx, bson.M{"_id": user.ID}, update)
-	if err != nil {
-		return err
+	if err == nil && result.MatchedCount > 0 {
+		r.redis.Del(ctx, "users:all", fmt.Sprintf("users:%s", user.ID.Hex()))
 	}
-	if result.MatchedCount == 0 {
-		return errors.New("user not found")
-	}
-	return nil
+	return err
 }
 
 func (r *UserRepository) Delete(ctx context.Context, id primitive.ObjectID) error {
 	collection := r.db.Database("gotrial").Collection("users")
-
 	result, err := collection.DeleteOne(ctx, bson.M{"_id": id})
-	if err != nil {
-		return err
+	if err == nil && result.DeletedCount > 0 {
+		r.redis.Del(ctx, "users:all", fmt.Sprintf("users:%s", id.Hex()))
 	}
-	if result.DeletedCount == 0 {
-		return errors.New("user not found")
-	}
-	return nil
+	return err
 }
 
 func (r *UserRepository) GetAll(ctx context.Context) ([]entity.User, error) {
@@ -85,6 +98,5 @@ func (r *UserRepository) GetAll(ctx context.Context) ([]entity.User, error) {
 	if err = cursor.All(ctx, &users); err != nil {
 		return nil, err
 	}
-
 	return users, nil
 }

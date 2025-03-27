@@ -6,11 +6,10 @@ import (
 	"net/http"
 
 	"golang-crud-clean-arch/config"
-	httpHandler "golang-crud-clean-arch/delivery/http" // Aliaskan package httpHandler
+	httpHandler "golang-crud-clean-arch/delivery/http"
+	"golang-crud-clean-arch/delivery/routes"
 	"golang-crud-clean-arch/internal/repository"
 	"golang-crud-clean-arch/internal/usecase"
-
-	"golang-crud-clean-arch/delivery/routes" // Import the routes package
 
 	"github.com/go-chi/chi/v5"
 )
@@ -19,16 +18,19 @@ func main() {
 	// Inisialisasi database
 	mongoClient := config.MongoConnect()
 
+	// Inisialisasi Redis
+	redisClient := config.ConnectRedis()
+
 	// Inisialisasi repository
-	repoRepo := repository.NewRepoRepository(mongoClient)
-	userRepo := repository.NewUserRepository(mongoClient)
+	repoRepo := repository.NewRepoRepository(mongoClient, redisClient)
+	userRepo := repository.NewUserRepository(mongoClient, redisClient)
 
 	// Inisialisasi usecase
-	repoUsecase := usecase.NewRepositoryUsecase(repoRepo)
-	userUsecase := usecase.NewUserUsecase(userRepo)
+	repoUsecase := usecase.NewRepositoryUsecase(repoRepo, redisClient)
+	userUsecase := usecase.NewUserUsecase(userRepo, redisClient)
 
 	// Inisialisasi handler
-	repoHandler := httpHandler.NewRepositoryHandler(repoUsecase, userUsecase) // Gunakan alias httpHandler
+	repoHandler := httpHandler.NewRepositoryHandler(repoUsecase, userUsecase)
 	userHandler := httpHandler.NewUserHandler(userUsecase)
 
 	// Setup router
